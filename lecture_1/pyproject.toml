@@ -1,0 +1,9 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+
+[project]
+name = "lecture_1"
+version = "1.0.1"
+dependencies = [
+    "colorama"
+]
