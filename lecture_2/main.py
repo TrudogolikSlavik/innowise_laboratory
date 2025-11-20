@@ -98,7 +98,7 @@ def main() -> None:
 
     # Collect hobbies until user enters 'stop'
     # Using walrus operator for coincise input loop
-    while (hobby:= input("Enter a favourite hobby or type 'stop' to finish: ")) != 'stop':
+    while (hobby:= input("Enter a favourite hobby or type 'stop' to finish: ")).lower() != 'stop':
         # Only add non-empty hobbies to the list
         if hobby:
             hobbies.append(hobby)
