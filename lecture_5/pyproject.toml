@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "book-api"
+version = "1.0.0"
+description = "Book Collection API"
+authors = [{name = "Your Name"}]
+dependencies = [
+    "fastapi==0.124.0",
+    "uvicorn[standard]==0.38.0",
+    "sqlalchemy==2.0.44",
+]
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.0.2",
+    "httpx==0.25.1",
+]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I"]
