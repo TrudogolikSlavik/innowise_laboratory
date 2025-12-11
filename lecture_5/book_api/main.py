@@ -92,8 +92,7 @@ def create_book(
     existing = (
         db.query(models.Book)
         .filter(
-            models.Book.title.ilike(book.title),
-            models.Book.author.ilike(book.author)
+            models.Book.title.ilike(book.title), models.Book.author.ilike(book.author)
         )
         .first()
     )
