@@ -175,3 +175,13 @@ poetry.toml
 pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
+
+# Project-specific ignores for lecture_5
+/lecture_5/*.db
+/lecture_5/venv/
+/lecture_5/.venv/
+/lecture_5/.pytest_cache/
+/lecture_5/.mypy_cache/
+/lecture_5/.ruff_cache/
+/lecture_5/build/
+/lecture_5/dist/
