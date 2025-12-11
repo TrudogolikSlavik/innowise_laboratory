@@ -36,7 +36,14 @@ class BookBase(BaseModel):
     @field_validator("title", "author")
     @classmethod
     def strip_whitespace(cls, v: str) -> str:
-        """Strip whitespace from string fields."""
+        """Strip whitespace from string fields.
+
+        Args:
+            v: Input string value
+
+        Returns:
+            Stripped string
+        """
         return v.strip() if v else v
 
 

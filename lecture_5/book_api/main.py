@@ -2,12 +2,13 @@
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+import models
+import schemas
+from database import engine, get_db
+from exceptions import BookNotFoundException, DuplicateBookException
+from fastapi import Depends, FastAPI, Query, status
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
-
-from . import models, schemas
-from .database import engine, get_db
 
 models.Base.metadata.create_all(bind=engine)  # type: ignore
 
@@ -19,13 +20,21 @@ app = FastAPI(
 
 
 def get_book_or_404(db: Session, book_id: int) -> models.Book:
-    """Get book by ID or raise 404 error."""
+    """Get book by ID or raise 404 error.
+
+    Args:
+        db: Database session
+        book_id: ID of the book to retrieve
+
+    Returns:
+        Book instance if found
+
+    Raises:
+        BookNotFoundException: If book is not found
+    """
     book = db.query(models.Book).filter(models.Book.id == book_id).first()
     if not book:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Book not found",
-        )
+        raise BookNotFoundException(book_id)
     return book
 
 
@@ -35,9 +44,19 @@ def apply_filters(
     author: Optional[str] = None,
     year: Optional[int] = None,
 ) -> Any:
-    """Apply search filters to query."""
+    """Apply search filters to SQLAlchemy query.
+
+    Args:
+        query: SQLAlchemy query object
+        title: Title search term (partial match, case-insensitive)
+        author: Author search term (partial match, case-insensitive)
+        year: Exact publication year
+
+    Returns:
+        Filtered SQLAlchemy query
+    """
     if title:
-        query = query.filter(models.Book.title.ilike(f"%{title}%"))  # case-insensitive
+        query = query.filter(models.Book.title.ilike(f"%{title}%"))
     if author:
         query = query.filter(models.Book.author.ilike(f"%{author}%"))
     if year:
@@ -65,20 +84,21 @@ def create_book(
 
     Returns:
         Created book with ID
+
+    Raises:
+        DuplicateBookException: If book with same title and author already exists
     """
     existing = (
         db.query(models.Book)
         .filter(
-            models.Book.title.ilike(book.title), models.Book.author.ilike(book.author)
+            models.Book.title.ilike(book.title),
+            models.Book.author.ilike(book.author)
         )
         .first()
     )
 
     if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Book with same title and author already exists",
-        )
+        raise DuplicateBookException(book.title, book.author)
 
     db_book = models.Book(**book.model_dump())
     db.add(db_book)
@@ -102,15 +122,17 @@ def read_books(
     sort_order: str = Query("asc", description="Sort order (asc, desc)"),
     db: Session = Depends(get_db),
 ) -> List[models.Book]:
-    """Get all books with pagination.
+    """Get all books with pagination and sorting.
 
     Args:
         skip: Number of books to skip (for pagination)
         limit: Maximum number of books to return
+        sort_by: Field to sort by (id, title, author, year)
+        sort_order: Sort order (asc or desc)
         db: Database session
 
     Returns:
-        List of books
+        List of books sorted by specified field
     """
     valid_sort_fields = {"id", "title", "author", "year"}
     if sort_by not in valid_sort_fields:
@@ -135,7 +157,18 @@ def read_book(
     book_id: int,
     db: Session = Depends(get_db),
 ) -> models.Book:
-    """Get a specific book by its ID."""
+    """Get a specific book by its ID.
+
+    Args:
+        book_id: ID of the book to retrieve
+        db: Database session
+
+    Returns:
+        Book with the specified ID
+
+    Raises:
+        HTTPException: 404 if book is not found
+    """
     return get_book_or_404(db, book_id)
 
 
@@ -148,7 +181,15 @@ def delete_book(
     book_id: int,
     db: Session = Depends(get_db),
 ) -> None:
-    """Delete a book by ID."""
+    """Delete a book by ID.
+
+    Args:
+        book_id: ID of the book to delete
+        db: Database session
+
+    Raises:
+        BookNotFoundException: If book is not found
+    """
     book = get_book_or_404(db, book_id)
     db.delete(book)
     db.commit()
@@ -176,7 +217,7 @@ def update_book(
         Updated book
 
     Raises:
-        HTTPException: If book is not found
+        BookNotFoundException: If book is not found
     """
     book = get_book_or_404(db, book_id)
 
@@ -201,6 +242,11 @@ def search_books(
     author: Optional[str] = Query(None, min_length=1, description="Author search term"),
     year: Optional[int] = Query(None, ge=1000, le=2100, description="Publication year"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
+    sort_by: str = Query(
+        "id",
+        description="Field to sort by (id, title, author, year)",
+    ),
+    sort_order: str = Query("asc", description="Sort order (asc, desc)"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records"),
     db: Session = Depends(get_db),
 ) -> List[models.Book]:
@@ -212,6 +258,8 @@ def search_books(
         year: Exact publication year
         skip: Number of books to skip (for pagination)
         limit: Maximum number of books to return
+        sort_by: Field to sort by (id, title, author, year)
+        sort_order: Sort order (asc or desc)
         db: Database session
 
     Returns:
@@ -219,6 +267,16 @@ def search_books(
     """
     query = db.query(models.Book)
     query = apply_filters(query, title, author, year)
+
+    valid_sort_fields = {"id", "title", "author", "year"}
+    if sort_by not in valid_sort_fields:
+        sort_by = "id"
+
+    order_by_field = getattr(models.Book, sort_by)
+    if sort_order.lower() == "desc":
+        order_by_field = order_by_field.desc()
+
+    query = query.order_by(order_by_field)
 
     return query.offset(skip).limit(limit).all()
 
@@ -229,10 +287,17 @@ def search_books(
     response_description="Book collection statistics",
 )
 def get_stats(db: Session = Depends(get_db)) -> Dict[str, Any]:
-    """Get statistics about the book collection."""
+    """Get statistics about the book collection.
+
+    Args:
+        db: Database session
+
+    Returns:
+        Dictionary with statistics including total books and books by year
+    """
     total_books = db.query(models.Book).count()
 
-    books_by_year_result = dict(
+    books_by_year_result = (
         db.query(models.Book.year, func.count(models.Book.id))
         .filter(models.Book.year.isnot(None))
         .group_by(models.Book.year)
@@ -250,7 +315,14 @@ def get_stats(db: Session = Depends(get_db)) -> Dict[str, Any]:
 
 @app.get("/health", include_in_schema=False)
 def health_check(db: Session = Depends(get_db)) -> dict[str, str]:
-    """Health check endpoint (excluded from OpenAPI schema)."""
+    """Health check endpoint (excluded from OpenAPI schema).
+
+    Args:
+        db: Database session
+
+    Returns:
+        Health status information
+    """
     try:
         db.execute(text("SELECT 1"))
         db_status = "connected"

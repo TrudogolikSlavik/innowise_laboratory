@@ -9,7 +9,16 @@ from .database import Base
 
 
 class Book(Base):  # type: ignore
-    """Book model representing a book in the collection."""
+    """Book model representing a book in the collection.
+
+    Attributes:
+        id: Primary key
+        title: Book title
+        author: Author name
+        year: Publication year (optional)
+        created_at: Timestamp when record was created
+        updated_at: Timestamp when record was last updated
+    """
 
     __tablename__ = "books"
 
@@ -26,7 +35,11 @@ class Book(Base):  # type: ignore
         return f"<Book(id={self.id}, title='{self.title}', author='{self.author}')>"
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert model to dictionary."""
+        """Convert model to dictionary.
+
+        Returns:
+            Dictionary representation of the book
+        """
         return {
             "id": self.id,
             "title": self.title,
