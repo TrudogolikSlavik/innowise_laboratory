@@ -5,7 +5,7 @@ from typing import Any, Dict
 from sqlalchemy import Column, DateTime, Integer, String
 from sqlalchemy.sql import func
 
-from .database import Base
+from book_api.database import Base
 
 
 class Book(Base):  # type: ignore

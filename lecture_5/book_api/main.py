@@ -2,13 +2,14 @@
 
 from typing import Any, Dict, List, Optional
 
-import models
-import schemas
-from database import engine, get_db
-from exceptions import BookNotFoundException, DuplicateBookException
 from fastapi import Depends, FastAPI, Query, status
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
+
+from book_api.database import engine, get_db
+from book_api.exceptions import BookNotFoundException, DuplicateBookException
+
+from . import models, schemas
 
 models.Base.metadata.create_all(bind=engine)  # type: ignore
 
