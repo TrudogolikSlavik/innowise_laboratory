@@ -5,10 +5,5 @@ app = FastAPI()
 
 @app.get("/healthcheck")
 async def healthcheck() -> dict:
-    """
-    Docstring for healthcheck
-    
-    :return: Description
-    :rtype: dict
-    """
+    """Return health status of the API service."""
     return {"status": "ok"}
